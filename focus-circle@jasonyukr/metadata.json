@@ -1,0 +1,7 @@
+{
+  "uuid": "focus-circle@jasonyukr",
+  "name": "Focus Circle Highlight",
+  "description": "Draws a faint 30% opacity circle at the top-left of the focused window for 2 seconds when it gains focus. Hides when focus is lost.",
+  "version": 1,
+  "shell-version": ["40", "45", "46", "47"]
+}
