@@ -1,6 +1,6 @@
 // Focus Circle Highlight GNOME Shell Extension
 // GNOME 40-compatible implementation (legacy init/enable/disable style)
- // Draws a faint 30% opacity circle at the top-left of the focused window for 2 seconds.
+ // Draws a faint 30% opacity circle at the top-left of the focused window for 3 seconds.
 // Hides immediately when focus is lost or the extension is disabled.
 
 const Clutter = imports.gi.Clutter;
@@ -22,6 +22,10 @@ class FocusCircleImpl {
     this._scaleChangedId = 0;
     this._monitorsChangedId = 0;
     this._monitorManager = null;
+    // Track geometry change handling to suppress rendering while window is moving/resizing
+    this._geometryChangeIds = [];
+    this._currentWindow = null;
+    this._suppressForWindow = null;
 
     // Create overlay widget with a Canvas content that draws a circle
     this._overlay = new St.Widget({
@@ -101,6 +105,9 @@ class FocusCircleImpl {
       }
       this._monitorsChangedId = 0;
     }
+    this._disconnectGeometrySignals();
+    this._currentWindow = null;
+    this._suppressForWindow = null;
     this._monitorManager = null;
     this._cancelHideTimeout();
 
@@ -115,6 +122,42 @@ class FocusCircleImpl {
       GLib.Source.remove(this._hideTimeoutId);
       this._hideTimeoutId = 0;
     }
+  }
+
+  _disconnectGeometrySignals() {
+    if (this._geometryChangeIds && this._geometryChangeIds.length) {
+      for (const [obj, id] of this._geometryChangeIds) {
+        try {
+          obj.disconnect(id);
+        } catch (e) {
+          // ignore disconnect errors
+        }
+      }
+      this._geometryChangeIds = [];
+    }
+  }
+
+  _connectGeometrySignals(win) {
+    this._disconnectGeometrySignals();
+    if (!win || !win.connect) return;
+
+    this._geometryChangeIds = [];
+    const signals = ['position-changed', 'size-changed'];
+    for (const name of signals) {
+      try {
+        const id = win.connect(name, this._onGeometryChanged.bind(this));
+        this._geometryChangeIds.push([win, id]);
+      } catch (e) {
+        // Some Mutter versions may not support all signals; ignore
+      }
+    }
+  }
+
+  _onGeometryChanged() {
+    // Disable the circle rendering when the target window location or size is changed
+    this._suppressForWindow = this._currentWindow;
+    if (this._overlay) this._overlay.hide();
+    this._cancelHideTimeout();
   }
 
   _recomputeSize() {
@@ -140,8 +183,27 @@ class FocusCircleImpl {
       ? global.display.get_focus_window()
       : global.display.focus_window;
 
-    // Hide if no focused window or unsuitable window types
+    const prevWin = this._currentWindow;
+
+    // Hide and disconnect if no focused window or unsuitable window types
     if (!win || win.minimized || win.window_type === Meta.WindowType.DESKTOP) {
+      this._disconnectGeometrySignals();
+      this._currentWindow = null;
+      if (this._overlay) this._overlay.hide();
+      this._cancelHideTimeout();
+      return;
+    }
+
+    // If focus moved to a different window, clear suppression
+    if (prevWin !== win) {
+      this._suppressForWindow = null;
+    }
+
+    this._currentWindow = win;
+    this._connectGeometrySignals(win);
+
+    // If suppressed for this window due to geometry change, do not render
+    if (this._suppressForWindow === win) {
       if (this._overlay) this._overlay.hide();
       this._cancelHideTimeout();
       return;
@@ -163,9 +225,9 @@ class FocusCircleImpl {
       }
     }
 
-    // Auto-hide after 2 seconds
+    // Auto-hide after 3 seconds
     this._cancelHideTimeout();
-    this._hideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+    this._hideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
       if (this._overlay) this._overlay.hide();
       this._hideTimeoutId = 0;
       return GLib.SOURCE_REMOVE;
