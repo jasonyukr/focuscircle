@@ -142,22 +142,37 @@ class FocusCircleImpl {
     if (!win || !win.connect) return;
 
     this._geometryChangeIds = [];
-    const signals = ['position-changed', 'size-changed'];
-    for (const name of signals) {
-      try {
-        const id = win.connect(name, this._onGeometryChanged.bind(this));
-        this._geometryChangeIds.push([win, id]);
-      } catch (e) {
-        // Some Mutter versions may not support all signals; ignore
-      }
+    try {
+      const idPos = win.connect('position-changed', this._onPositionChanged.bind(this));
+      this._geometryChangeIds.push([win, idPos]);
+    } catch (e) {
+      // Some Mutter versions may not support all signals; ignore
+    }
+    try {
+      const idSize = win.connect('size-changed', this._onSizeChanged.bind(this));
+      this._geometryChangeIds.push([win, idSize]);
+    } catch (e) {
+      // Some Mutter versions may not support all signals; ignore
     }
   }
 
-  _onGeometryChanged() {
-    // Disable the circle rendering when the target window location or size is changed
+  _onPositionChanged() {
+    // Dismiss when window location changes (move)
     this._suppressForWindow = this._currentWindow;
     if (this._overlay) this._overlay.hide();
     this._cancelHideTimeout();
+  }
+
+  _onSizeChanged() {
+    // Keep the circle visible on resize; just reposition/redraw if needed
+    if (!this._currentWindow || !this._overlay) return;
+    const rect = this._currentWindow.get_frame_rect();
+    const x = rect.x + this._inset;
+    const y = rect.y + this._inset;
+    this._overlay.set_position(x, y);
+    const content = this._overlay.get_content && this._overlay.get_content();
+    if (content && content.invalidate) content.invalidate();
+    // Do NOT cancel the hide timeout; dismissal should be by timeout or location change
   }
 
   _recomputeSize() {
