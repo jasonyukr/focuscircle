@@ -15,7 +15,7 @@ class FocusCircleImpl {
     const themeContext = St.ThemeContext.get_for_stage(global.stage);
     this._scale = (themeContext && themeContext.scale_factor) ? themeContext.scale_factor : 1;
     const titlePx = 32 * this._scale; // generic GNOME titlebar height baseline
-    this._size = Math.round(titlePx * 0.42);   // reduced to 60% of previous (0.7 * 0.6 = 0.42)
+    this._size = Math.round(titlePx * 0.504)  // reduced to 72% of previous (0.7 * 0.72 = 0.504)
     this._inset = Math.round(titlePx * 0.15); // margin from top-left
     this._hideTimeoutId = 0;
     this._focusChangedId = 0;
