@@ -1,6 +1,6 @@
 // Focus Circle Highlight GNOME Shell Extension
 // GNOME 40-compatible implementation (legacy init/enable/disable style)
- // Draws a faint 30% opacity circle at the top-left of the focused window for 10 seconds.
+// Draws a faint 30% opacity circle at the top-left of the focused window for 5 seconds.
 // Hides immediately when focus is lost or the extension is disabled.
 
 const Clutter = imports.gi.Clutter;
@@ -240,9 +240,9 @@ class FocusCircleImpl {
       }
     }
 
-    // Auto-hide after 10 seconds
+    // Auto-hide after 5 seconds
     this._cancelHideTimeout();
-    this._hideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 10000, () => {
+    this._hideTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 5000, () => {
       if (this._overlay) this._overlay.hide();
       this._hideTimeoutId = 0;
       return GLib.SOURCE_REMOVE;
